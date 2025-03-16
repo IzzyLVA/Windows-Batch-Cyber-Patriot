@@ -162,3 +162,4 @@ netsh advfirewall firewall add rule name="Block Port 1900" dir=in action=block p
 echo Port 1900 has been blocked.
 pause
 goto :menu
+
