@@ -1,0 +1,164 @@
+@echo off
+setlocal enabledelayedexpansion
+
+echo Welcome to the System Configuration Script
+
+:: Check for admin rights
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Access Denied. Please run the script with administrator privileges.
+    pause
+    exit /b 1
+)
+
+:menu
+cls
+echo Welcome to the System Configuration Script
+echo Options:
+echo "1) Set user properties      2) Create a user"
+echo "3) Disable a user           4) Change all passwords"
+echo "5) Disable guest/admin      6) Set password policy"
+echo "7) Password Policy 2        8) Group check status"
+echo "9) Set lockout policy       10) Enable Firewall"
+echo "11) Search for media files  12) Disable services"
+echo "13) Turn on UAC             14) Remote Desktop Config"
+echo "15) Enable auto update       16) Security options"
+echo "17) Audit the machine        18) Auto Login netpwiz"
+echo "19) Disable port 1900        20) Adaptor Settings"
+echo "21) Windows Services         22) Disable Tiles"
+echo "23) Disable AutoPlay         0) Exit"
+echo "70) Reboot"
+
+set /p answer=Please choose an option: 
+
+if "%answer%"=="1" goto :userProp
+if "%answer%"=="2" goto :createUser
+if "%answer%"=="3" goto :disUser
+if "%answer%"=="4" goto :passwd
+if "%answer%"=="5" goto :disGueAdm
+if "%answer%"=="6" goto :passwdPol
+if "%answer%"=="7" goto :passwdPol2
+if "%answer%"=="8" goto :groupStat
+if "%answer%"=="9" goto :lockout
+if "%answer%"=="10" goto :firewall
+if "%answer%"=="11" goto :badFiles
+if "%answer%"=="12" goto :services
+if "%answer%"=="13" goto :UAC
+if "%answer%"=="14" goto :remDesk
+if "%answer%"=="15" goto :autoUpdate
+if "%answer%"=="16" goto :secOpt
+if "%answer%"=="17" goto :audit
+if "%answer%"=="18" goto :autoLog
+if "%answer%"=="19" goto :disPort
+if "%answer%"=="20" goto :adaptSet
+if "%answer%"=="21" goto :winServ
+if "%answer%"=="22" goto :tiles
+if "%answer%"=="23" goto :autoPlay
+if "%answer%"=="0" exit /b
+if "%answer%"=="70" shutdown /r /t 0
+
+echo Invalid option. Please try again.
+pause
+goto :menu
+
+:userProp
+echo Setting password never expires
+wmic UserAccount set PasswordExpires=True
+wmic UserAccount set PasswordChangeable=True
+wmic UserAccount set PasswordRequired=True
+pause
+goto :menu
+
+:createUser
+set /p answer=Would you like to create a user? [y/n]: 
+if /i "%answer%"=="y" (
+    set /p NAME=What is the user you would like to create?:
+    set /p PASS=Enter a password for !NAME!:
+    net user !NAME! !PASS! /add
+    echo !NAME! has been added
+    pause 
+) 
+goto :menu
+
+:disUser
+for %%A in (Account1 Account2) do (
+    net user %%A /active:no
+    net user %%A Password!
+)
+
+echo All specified accounts have been disabled and set to password "Password!".
+pause
+goto :menu
+
+:passwd
+for /f "tokens=1" %%A in ('net user ^| findstr /r "^[A-Za-z0-9]"') do (
+    if /i not "%%A"=="Administrator" if /i not "%%A"=="Guest" (
+        net user "%%A" Password!
+    )
+)
+echo All user passwords have been set to Password!
+pause
+goto :menu
+
+:groupStat
+for /f "tokens=1" %%U in ('net user ^| findstr /r "^[A-Za-z0-9]"') do (
+    echo %%U belongs to:
+    net localgroup | findstr /i "%%U"
+)
+pause
+goto :menu
+
+:lockout
+net accounts /lockoutthreshold:3
+net accounts /lockoutduration:30
+net accounts /lockoutwindow:30
+echo Lockout policies have been set.
+pause
+goto :menu
+
+:firewall
+netsh advfirewall set allprofiles state on
+echo Firewall has been enabled.
+pause
+goto :menu
+
+:badFiles
+echo Searching for media files...
+dir /s /b /a-d "C:\*.mp3" "C:\*.mp4" "C:\*.avi"
+pause
+goto :menu
+
+:services
+sc query "Routing and Remote Access" >nul 2>&1 && sc config "Routing and Remote Access" start= disabled
+sc config "Net.Tcp Port Sharing Service" start= disabled
+net start "DHCP"
+sc config "MpsSvc" start= auto
+netsh advfirewall set allprofiles state on
+echo Services have been configured.
+pause
+goto :menu
+
+:UAC
+reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v EnableLUA /t REG_DWORD /d 1 /f
+echo User Account Control (UAC) has been turned on. Restart required.
+pause
+goto :menu
+
+:remDesk
+reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+netsh advfirewall firewall set rule group="Remote Desktop" new enable=yes
+echo Remote Desktop is now enabled.
+pause
+goto :menu
+
+:autoUpdate
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update" /v AUOptions /t REG_DWORD /d 2 /f
+echo Automatic updates have been enabled.
+pause
+goto :menu
+
+:disPort
+netsh advfirewall firewall add rule name="Block Port 1900" dir=in action=block protocol=UDP localport=1900
+echo Port 1900 has been blocked.
+pause
+goto :menu
